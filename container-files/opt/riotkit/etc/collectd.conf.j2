@@ -1,0 +1,74 @@
+#
+# RiotKit's default configuration for Collectd worker node
+# Feel free to extend.
+#
+
+Hostname "{{ HOSTNAME }}"
+
+{% if PLUGIN_CPU|int %}LoadPlugin cpu{% endif %}
+{% if PLUGIN_DISK|int %}LoadPlugin disk{% endif %}
+{% if PLUGIN_LOAD|int %}LoadPlugin load{% endif %}
+{% if PLUGIN_MEMORY|int %}LoadPlugin memory{% endif %}
+{% if PLUGIN_SWAP|int %}LoadPlugin swap{% endif %}
+LoadPlugin syslog
+LoadPlugin network
+{% if PLUGIN_DOCKER|int %}LoadPlugin python{% endif %}
+{% if PLUGIN_NGINX|int %}LoadPlugin nginx{% endif %}
+{% if PLUGIN_INTERFACE|int %}LoadPlugin interface{% endif %}
+{% if PLUGIN_DF|int %}LoadPlugin df{% endif %}
+
+<Plugin syslog>
+    LogLevel {{ LOG_LEVEL }}
+</Plugin>
+
+{% if PLUGIN_DF|int %}
+<Plugin "df">
+    IgnoreSelected true
+</Plugin>
+{% endif %}
+
+<Plugin "network">
+    <Server "{{ FORWARD_ADDRESS }}" "{{ FORWARD_PORT }}">
+        SecurityLevel "{{ FORWARD_SECURITY_LEVEL }}"
+        {% if FORWARD_USER and FORWARD_PASSWORD %}
+            Username "{{ FORWARD_USER }}"
+            Password "{{ FORWARD_PASSWORD }}"
+        {% endif %}
+    </Server>
+
+    Forward true
+</Plugin>
+
+{% if PLUGIN_DOCKER|int %}
+<Plugin python>
+    ModulePath "/usr/share/collectd/docker-collectd-plugin"
+    Import "dockerplugin"
+
+    <Module dockerplugin>
+        BaseURL "{{ DOCKER_URL }}"
+        Timeout {{ DOCKER_TIMEOUT }}
+
+        # RiotKit's Harbor support
+        Dimension "harbor_url" "env:VIRTUAL_HOST"
+    </Module>
+</Plugin>
+{% endif %}
+
+{% if PLUGIN_NGINX|int %}
+<Plugin "nginx">
+    URL "{{ NGINX_URL }}"
+    {% if NGINX_USER %}User "{{ NGINX_USER }}"{% endif %}
+    {% if NGINX_PASSWORD %}Password "{{ NGINX_PASSWORD }}"{% endif %}
+</Plugin>
+{% endif %}
+
+{% if PLUGIN_INTERFACE|int %}
+<Plugin "interface">
+    {% for interface in ENABLED_INTERFACES.split(',') %}
+        Interface "{{ interface }}"
+    {% endfor %}
+    IgnoreSelected true
+</Plugin>
+{% endif %}
+
+{% include "/opt/riotkit/etc/custom.conf.j2" %}
